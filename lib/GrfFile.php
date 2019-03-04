@@ -333,21 +333,29 @@ class GrfFile
      * Saves the file writing and packing all data inside grf.
      * This is a repack.
      * 
+     * @param string $filename New grf name
+     * 
      * @return void
      */
-    public function save()
+    public function save($filename = null)
     {
         $this->isNeedingSave = false;
         $header = $this->getHeader();
         $entries = $this->getEntries();
         $tableFilesOffset = 0;
-        $tmpFile = $this->fileName . '.tmp';
+        $entryCount = 0;
+        $tmpFile = (($filename === null) ? $this->fileName . '.tmp' : $filename);
 
         // Buffer writer
         $fpTmp = fopen($tmpFile, 'wb');
 
-        foreach ($entries as $entry)
-            $tableFilesOffset += $entry->getCompressedSizeAligned();
+        // Compute only for file entries!
+        foreach ($entries as $entry) {
+            if ($entry->getFlags() & GrfEntryHeader::GRF_FLAG_FILE) {
+                $tableFilesOffset += $entry->getCompressedSizeAligned();
+                $entryCount++;
+            }
+        }
 
         $buf = new BufferWriter();
         $buf->appendString($header->getMagic());
@@ -355,7 +363,7 @@ class GrfFile
         $buf->appendString($header->getKey());
         $buf->appendUInt32($tableFilesOffset); // This resets the header... should be calculated again...
         $buf->appendUInt32(0);
-        $buf->appendUInt32($entries->count() + 7);
+        $buf->appendUInt32($entryCount + 7);
         $buf->appendUInt32(0x200);
 
         fwrite($fpTmp, $buf->flush());
@@ -363,8 +371,16 @@ class GrfFile
 
         $entryOffset = 0;
         foreach ($entries as $entry) {
+
+            // The entry is no file? Then no need to be added on this
+            // grf!!!
+            if (($entry->getFlags() & GrfEntryHeader::GRF_FLAG_FILE) == 0)
+                continue;
+
             fseek($fpTmp, $entryOffset + self::GRF_HEADER_SIZE, SEEK_SET);
 
+            // If the file is encrypted, they should be decoded
+            // and added without encrypt here. Use Grf Editor to encrypt files. C:
             $len = fwrite($fpTmp, $entry->getCompressedBuffer());
             $aligned = $entry->getCompressedSizeAligned();
 

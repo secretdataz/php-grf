@@ -107,7 +107,6 @@ class GrfEntryHeader
     public function __construct($name, BufferReader $buffer = null, GrfFile $grf, $fileBytes = null)
     {
         $this->grf = $grf;
-        $this->size = 17; // Fixed
         $this->filename = utf8_encode($name);
         $this->cycle = -1;
 
@@ -271,16 +270,6 @@ class GrfEntryHeader
     public function getFilename()
     {
         return $this->filename;
-    }
-
-    /**
-     * Full header length
-     * 
-     * @return int
-     */
-    public function getHeaderLength()
-    {
-        return $this->size;
     }
 
     /**
