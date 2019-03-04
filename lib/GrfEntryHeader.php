@@ -296,7 +296,7 @@ class GrfEntryHeader
 
         for ($i = 0; $i < $len; $i++) {
             $chr = ord($tmpSrc[$i]);
-            $tmpSrc[$i] = ($chr >> 4 | $chr << 4);
+            $tmpSrc[$i] = chr(($chr >> 4 | $chr << 4));
         }
 
         return implode('', $tmpSrc);
