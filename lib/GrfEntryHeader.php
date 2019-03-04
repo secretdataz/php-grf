@@ -88,6 +88,13 @@ class GrfEntryHeader
     private $compressedBytes;
 
     /**
+     * The cycle for reading file.
+     * 
+     * @var string
+     */
+    private $cycle;
+
+    /**
      * Reads the buffer and populates the file entries
      * 
      * @param string       $name      Filename
@@ -102,6 +109,7 @@ class GrfEntryHeader
         $this->grf = $grf;
         $this->size = 17; // Fixed
         $this->filename = utf8_encode($name);
+        $this->cycle = -1;
 
         if ($fileBytes === null) {
             $this->compressedSize = $buffer->getUInt32();
@@ -109,6 +117,17 @@ class GrfEntryHeader
             $this->unCompressedSize = $buffer->getUInt32();
             $this->flags = $buffer->getUInt8();
             $this->offset = $buffer->getUInt32() + GrfFile::GRF_HEADER_SIZE;
+
+            if ($this->flags & self::GRF_FLAG_MIXCRYPT) {
+                $this->cycle = 1;
+                for ($i = 10; $this->compressedSize >= $i; $i *= 10)
+                    $this->cycle++;
+            }
+
+            if ($this->flags & self::GRF_FLAG_DES) {
+                $this->cycle = 0;
+            }
+
             return;
         }
 
@@ -117,7 +136,7 @@ class GrfEntryHeader
         $this->compressedSize = strlen($this->compressedBytes);
         $this->compressedSizeAligned = $this->compressedSize + (4 - (($this->compressedSize - 1) % 4)) - 1;
         $this->unCompressedSize = strlen($fileBytes);
-        $this->flags = 1;
+        $this->flags = self::GRF_FLAG_FILE;
         $this->offset = -1;
     }
 
@@ -163,11 +182,24 @@ class GrfEntryHeader
      */
     public function getCompressedBuffer()
     {
+        // Not a file? Can't get the buffer...
+        if (($this->getFlags() & self::GRF_FLAG_FILE) == 0)
+            return null;
+
         if ($this->compressedBytes === null) {
-            $this->compressedBytes = $this->getGrf()->readBuffer($this->getOffset(), $this->getCompressedSize());
+            // FIXED: Needs to use the compressed aligned for encrypted files.
+            $this->compressedBytes = $this->getGrf()->readBuffer($this->getOffset(), $this->getCompressedSizeAligned());
+
+            if ($this->getCycle() >= 0) {
+                // Decrypt/decodes the compressed bytes and store it in memory
+                // @TODO: Decode functions goes here
+            }
+
+            // Fetches the compressed buffer again
             return $this->getCompressedBuffer();
         }
 
+        // Return the compressed buffer data
         return $this->compressedBytes;
     }
 
@@ -250,4 +282,22 @@ class GrfEntryHeader
     {
         return $this->size;
     }
+
+    /**
+     * Gets the cycle from grf flag.
+     * 
+     * @return int
+     */
+    public function getCycle()
+    {
+        return $this->cycle;
+    }
+
+    // https://github.com/carloshenrq/grf/blob/master/includes/libgrf.h#L72-L75
+    const GRF_FLAG_FILE = 0x1;
+    const GRF_FLAG_MIXCRYPT = 0x2;
+    const GRF_FLAG_DES = 0x4;
+
+    // https://github.com/carloshenrq/grf/blob/master/includes/libgrf.h#L76-L77
+    const GRF_FLAG_DELETE = 0x8;
 }
