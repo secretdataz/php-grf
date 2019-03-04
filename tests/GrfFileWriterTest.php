@@ -96,7 +96,7 @@ class GrfFileWriterTest extends PHPUnit\Framework\TestCase
         // saves the grf and recalculate the size
         $grf->save();
 
-        $this->assertEquals(858333, $grf->getFullsize());
+        $this->assertEquals(858318, $grf->getFullsize());
 
         $grf->close();
         unlink('tests/tmp_test200repack.grf');
