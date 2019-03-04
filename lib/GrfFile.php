@@ -151,41 +151,16 @@ class GrfFile
         $table = zlib_decode($table_comp);
 
         // Entries read, populates it to be in memory
-        $pos = 0;
-        $tbm_table = $table;
-        $max_pos = $posinfo[1];
-        while ($pos < $max_pos) {
-            $av_len = $max_pos - $pos;
-            $fn_len = $this->getAvLen($tbm_table, $av_len);
+        $buffer = new BufferReader($table);
+        while ($buffer->getPos() < $buffer->getLength()) {
+            $filename = '';
+            while (($char = $buffer->getUInt8()) != 0)
+                $filename .= chr($char);
 
-            $buffer = new BufferReader(substr($table, $pos, $fn_len));
-            $filename = $buffer->getString($buffer->getLength());
-            $pos += ($fn_len + 1);
-
-            $entry = new GrfEntryHeader($filename, new BufferReader(substr($table, $pos)), $this);
-            $pos += $entry->getHeaderLength();
-
+            $entry = new GrfEntryHeader($filename, $buffer, $this);
             $this->entries[] = $entry;
-            $tbm_table = substr($table, $pos);
         }
-    }
-
-    /**
-     * Gets the file size string
-     * 
-     * @param string $str    File table
-     * @param int    $maxLen max len to be readed
-     * 
-     * @return int
-     */
-    public function getAvLen($str, $maxLen)
-    {
-        for ($i = 0; $i < $maxLen; $i++) {
-            if (ord($str[$i]) == NULL)
-                return $i;
-        }
-
-        return $maxLen;
+        $buffer = null;
     }
 
     /**
